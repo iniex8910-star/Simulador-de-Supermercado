@@ -2,6 +2,9 @@
 #include <string>
 #include <iomanip>
 #include <ctime>
+#include <sstream>
+#include <algorithm>
+#include <limits>
 using namespace std;
  
 
@@ -28,7 +31,92 @@ struct noLista {
 struct Lista {
     noLista* cabeca;
 };
- 
+
+ struct noArvore {
+    Produto* produto;
+    noArvore* esquerda;
+    noArvore* direita;
+};
+
+struct Arvore {
+    noArvore* raiz;
+};
+
+noArvore* inserirNaArvore(noArvore* raiz, Produto p) {
+
+    if (raiz == nullptr) {
+        noArvore* novo = new noArvore;
+        novo->produto = new Produto;
+        *novo->produto = p;
+
+        novo->esquerda = nullptr;
+        novo->direita = nullptr;
+
+        return novo;
+    }
+
+    if (p.codigo < raiz->produto->codigo) {
+        raiz->esquerda = inserirNaArvore(raiz->esquerda, p);
+    }
+    else if (p.codigo > raiz->produto->codigo) {
+        raiz->direita = inserirNaArvore(raiz->direita, p);
+    }
+
+    return raiz;
+}
+
+noArvore* buscarNaArvore(noArvore* raiz, int codigo) {
+
+    if (raiz == nullptr) {
+        return nullptr;
+    }
+
+    if (codigo == raiz->produto->codigo) {
+        return raiz;
+    }
+
+    if (codigo < raiz->produto->codigo) {
+        return buscarNaArvore(raiz->esquerda, codigo);
+    }
+    else {
+        return buscarNaArvore(raiz->direita, codigo);
+    }
+}
+
+
+noArvore* removerDaArvore(noArvore* raiz, int codigo) {
+    if (raiz == nullptr) return nullptr;
+    if (codigo < raiz->produto->codigo) {
+        raiz->esquerda = removerDaArvore(raiz->esquerda, codigo);
+    } else if (codigo > raiz->produto->codigo) {
+        raiz->direita = removerDaArvore(raiz->direita, codigo);
+    } else {
+        if (raiz->esquerda == nullptr || raiz->direita == nullptr) {
+            noArvore* filho = raiz->esquerda ? raiz->esquerda : raiz->direita;
+            delete raiz->produto;
+            delete raiz;
+            return filho;
+        }
+        noArvore* sucessor = raiz->direita;
+        while (sucessor->esquerda != nullptr) sucessor = sucessor->esquerda;
+        *raiz->produto = *sucessor->produto;
+        raiz->direita = removerDaArvore(raiz->direita, sucessor->produto->codigo);
+    }
+    return raiz;
+}
+
+void liberarArvore(noArvore* raiz) {
+
+    if (raiz == nullptr) {
+        return;
+    }
+
+    liberarArvore(raiz->esquerda);
+    liberarArvore(raiz->direita);
+
+    delete raiz->produto;
+    delete raiz;
+}
 
 void pausar(int milissegundos) {
     clock_t inicio = clock();
@@ -175,7 +263,7 @@ void listarCarrinho(Pilha* pilha) {
 void buscarProdutoNoCatalogo(Lista* catalogo) {
     int codigo;
     cout << "Digite o codigo do produto que deseja buscar: ";
-    cin >> codigo;
+    if (!(cin >> codigo)) return;
 
     noLista* resultado = buscarNaLista(catalogo, codigo); 
 
@@ -195,29 +283,39 @@ void liberarPilha(Pilha* pilha) {
 }
  
 
-void cadastrarProduto(Lista* catalogo) {
+void cadastrarProduto(Lista* catalogo, Arvore* arvore) {
     Produto p;
     cout << "Codigo: ";
-    cin >> p.codigo;
+    if (!(cin >> p.codigo)) return;
     if (buscarNaLista(catalogo, p.codigo) != nullptr) {
         cout << "Ja existe produto com esse codigo.\n";
         return;
     }
     cout << "Nome: ";
-    cin.ignore();
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
     getline(cin, p.nome);
     cout << "Preco: ";
-    cin >> p.preco;
+    string entrada;
+    getline(cin, entrada);
+    replace(entrada.begin(), entrada.end(), ',', '.');
+    stringstream conversao(entrada);
+    char extra;
+    if (!(conversao >> p.preco) || p.preco < 0 || (conversao >> extra)) {
+        cout << "Preco invalido.\n";
+        return;
+    }
     inserirNaLista(catalogo, p);
+    arvore->raiz = inserirNaArvore(arvore->raiz, p);
     cout << "Produto cadastrado.\n";
 }
  
 
-void removerProduto(Lista* catalogo) {
+void removerProduto(Lista* catalogo, Arvore* arvore) {
     int codigo;
     cout << "Codigo a remover: ";
-    cin >> codigo;
+    if (!(cin >> codigo)) return;
     if (removerDaLista(catalogo, codigo)) {
+        arvore->raiz = removerDaArvore(arvore->raiz, codigo);
         cout << "Produto removido.\n";
     } else {
         cout << "Produto nao encontrado.\n";
@@ -235,7 +333,7 @@ void mostrarCatalogo(Lista* catalogo) {
 void adicionarAoCarrinho(Lista* catalogo, Pilha* carrinho) {
     int codigo;
     cout << "Codigo do produto: ";
-    cin >> codigo;
+    if (!(cin >> codigo)) return;
     noLista* achado = buscarNaLista(catalogo, codigo);
     if (achado == nullptr) {
         cout << "Produto nao encontrado.\n";
@@ -256,73 +354,89 @@ void desfazerUltimoItem(Pilha* carrinho) {
 }
  
 
-void adicionarExemplo(Lista* catalogo, int codigo, string nome, double preco) {
+void adicionarExemplo(Lista* catalogo, Arvore* arvore, int codigo, string nome, double preco) {
     Produto p;
     p.codigo = codigo;
     p.nome = nome;
     p.preco = preco;
     inserirNaLista(catalogo, p);
+    arvore->raiz = inserirNaArvore(arvore->raiz, p);
 }
  
 
-void carregarExemplos(Lista* catalogo) {
-    adicionarExemplo(catalogo, 30, "Arroz 5kg", 24.90);
-    adicionarExemplo(catalogo, 10, "Feijao 1kg", 8.50);
-    adicionarExemplo(catalogo, 50, "Leite 1L", 5.20);
-    adicionarExemplo(catalogo, 20, "Macarrao", 4.75);
-    adicionarExemplo(catalogo, 40, "Cafe 500g", 16.90);
-    adicionarExemplo(catalogo, 60, "Acucar 1kg", 5.40);
+void carregarExemplos(Lista* catalogo, Arvore* arvore) {
+    adicionarExemplo(catalogo, arvore, 30, "Arroz 5kg", 24.90);
+    adicionarExemplo(catalogo, arvore, 10, "Feijao 1kg", 8.50);
+    adicionarExemplo(catalogo, arvore, 50, "Leite 1L", 5.20);
+    adicionarExemplo(catalogo, arvore, 20, "Macarrao", 4.75);
+    adicionarExemplo(catalogo, arvore, 40, "Cafe 500g", 16.90);
+    adicionarExemplo(catalogo, arvore, 60, "Acucar 1kg", 5.40);
 }
  
+
+void buscarProdutoNaArvore(Arvore* arvore) {
+    int codigo;
+    cout << "Codigo do produto: ";
+    if (!(cin >> codigo)) return;
+    noArvore* resultado = buscarNaArvore(arvore->raiz, codigo);
+    if (resultado != nullptr) mostrarProduto(*resultado->produto);
+    else cout << "Produto nao encontrado.\n";
+}
 
 void exibirMenu() {
     cout << "\n===== SUPERMERCADO =====\n";
     cout << "1 Cadastrar produto\n";
     cout << "2 Remover produto\n";
     cout << "3 Listar catalogo\n";
-    cout << "4 Buscar produto\n";
-    cout << "4 Adicionar ao carrinho\n";
-    cout << "5 Desfazer ultimo item do carrinho\n";
-    cout << "6 Ver carrinho\n";
+    cout << "4 Buscar produto pela lista\n";
+    cout << "5 Adicionar ao carrinho\n";
+    cout << "6 Desfazer ultimo item do carrinho\n";
+    cout << "7 Ver carrinho\n";
+    cout << "8 Buscar produto pela arvore\n";
     cout << "0 Sair\n";
 }
- 
 
-void executarOpcao(int opcao, Lista* catalogo, Pilha* carrinho) {
-    if (opcao == 1) cadastrarProduto(catalogo);
-    else if (opcao == 2) removerProduto(catalogo);
+void executarOpcao(int opcao, Lista* catalogo, Pilha* carrinho, Arvore* arvore) {
+    if (opcao == 1) cadastrarProduto(catalogo, arvore);
+    else if (opcao == 2) removerProduto(catalogo, arvore);
     else if (opcao == 3) mostrarCatalogo(catalogo);
     else if (opcao == 4) buscarProdutoNoCatalogo(catalogo);
-    else if (opcao == 5) desfazerUltimoItem(carrinho);
-    else if (opcao == 6) listarCarrinho(carrinho);
+    else if (opcao == 5) adicionarAoCarrinho(catalogo, carrinho);
+    else if (opcao == 6) desfazerUltimoItem(carrinho);
+    else if (opcao == 7) listarCarrinho(carrinho);
+    else if (opcao == 8) buscarProdutoNaArvore(arvore);
     else if (opcao == 0) cout << "Ate logo!\n";
     else cout << "Opcao invalida.\n";
 }
- 
+
 int main() {
     Lista catalogo = {nullptr};
     Pilha carrinho = {nullptr};
+    Arvore arvore = {nullptr};
     int opcao;
  
     cout << fixed << setprecision(2); 
     carregando("Iniciando sistema", 5);
-    carregarExemplos(&catalogo);
+    carregarExemplos(&catalogo, &arvore);
  
     do {
         exibirMenu();
         cout << "Opcao: ";
         cin >> opcao;
+        if (cin.eof()) break;
         if (cin.fail()) { 
             cin.clear();
             cin.ignore(1000, '\n');
             opcao = -1;
         }
         carregando();
-        executarOpcao(opcao, &catalogo, &carrinho);
+        executarOpcao(opcao, &catalogo, &carrinho, &arvore);
     } while (opcao != 0);
  
+    liberarArvore(arvore.raiz);
+    arvore.raiz = nullptr;
     liberarLista(&catalogo);
     liberarPilha(&carrinho);
     return 0;
 }
- 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
