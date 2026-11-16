@@ -171,6 +171,21 @@ void listarCarrinho(Pilha* pilha) {
     cout << "Itens: " << itens << " | Total: R$ "
          << somarRecursivo(pilha->topo) << endl;
 }
+
+void buscarProdutoNoCatalogo(Lista* catalogo) {
+    int codigo;
+    cout << "Digite o codigo do produto que deseja buscar: ";
+    cin >> codigo;
+
+    noLista* resultado = buscarNaLista(catalogo, codigo); 
+
+    if (resultado != nullptr) {
+        cout << "\nProduto encontrado com sucesso!\n";
+        mostrarProduto(*resultado->produto);
+    } else {
+        cout << "\nNenhum produto encontrado com o codigo " << codigo << ".\n";
+    }
+}
  
 
 void liberarPilha(Pilha* pilha) {
@@ -265,6 +280,7 @@ void exibirMenu() {
     cout << "1 Cadastrar produto\n";
     cout << "2 Remover produto\n";
     cout << "3 Listar catalogo\n";
+    cout << "4 Buscar produto\n";
     cout << "4 Adicionar ao carrinho\n";
     cout << "5 Desfazer ultimo item do carrinho\n";
     cout << "6 Ver carrinho\n";
@@ -276,7 +292,7 @@ void executarOpcao(int opcao, Lista* catalogo, Pilha* carrinho) {
     if (opcao == 1) cadastrarProduto(catalogo);
     else if (opcao == 2) removerProduto(catalogo);
     else if (opcao == 3) mostrarCatalogo(catalogo);
-    else if (opcao == 4) adicionarAoCarrinho(catalogo, carrinho);
+    else if (opcao == 4) buscarProdutoNoCatalogo(catalogo);
     else if (opcao == 5) desfazerUltimoItem(carrinho);
     else if (opcao == 6) listarCarrinho(carrinho);
     else if (opcao == 0) cout << "Ate logo!\n";
